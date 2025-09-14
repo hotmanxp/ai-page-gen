@@ -1,0 +1,31 @@
+{
+  "name": "ai-page-generate-app",
+  "version": "1.0.0",
+  "description": "AI-powered frontend page generation application",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "init": "pnpm install && pnpm run init:frontend && pnpm run init:backend",
+    "init:frontend": "cd frontend && pnpm install",
+    "init:backend": "cd backend && pnpm install",
+    "dev": "pnpm run dev:backend & pnpm run dev:frontend",
+    "dev:frontend": "cd frontend && pnpm run dev",
+    "dev:backend": "cd backend && pnpm run dev",
+    "build": "pnpm run build:frontend && pnpm run build:backend",
+    "build:frontend": "cd frontend && pnpm run build",
+    "build:backend": "cd backend && pnpm run build",
+    "lint": "pnpm run lint:frontend && pnpm run lint:backend",
+    "lint:frontend": "cd frontend && pnpm run lint",
+    "lint:backend": "cd backend && pnpm run lint"
+  },
+  "devDependencies": {
+    "pnpm": "^8.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PC端网页</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <header class="bg-blue-600 text-white py-6 shadow-md">
+        <div class="container mx-auto px-4 flex justify-between items-center">
+            <h1 class="text-2xl font-bold">PC端网页</h1>
+            <nav class="space-x-4 hidden md:flex">
+                <a href="#" class="hover:underline">首页</a>
+                <a href="#" class="hover:underline">关于我们</a>
+                <a href="#" class="hover:underline">服务</a>
+                <a href="#" class="hover:underline">联系</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-12">
+        <section class="mb-16">
+            <div class="text-center mb-8">
+                <h2 class="text-4xl font-extrabold">欢迎来到PC端网页</h2>
+                <p class="mt-4 text-lg text-gray-600">这是一个现代、响应式的网页模板，适用于企业或个人网站。</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+                    <h3 class="text-xl font-semibold mb-2">首页</h3>
+                    <p>这是网站的主页面，展示核心内容和导航。</p>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+                    <h3 class="text-xl font-semibold mb-2">关于我们</h3>
+                    <p>了解我们的使命、愿景和团队背景。</p>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+                    <h3 class="text-xl font-semibold mb-2">服务</h3>
+                    <p>探索我们提供的各种服务和解决方案。</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-16">
+            <h2 class="text-3xl font-bold mb-8 text-center">最新动态</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+                    <h3 class="text-xl font-semibold mb-2">新闻标题 1</h3>
+                    <p>这是第一条新闻的简要描述。</p>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+                    <h3 class="text-xl font-semibold mb-2">新闻标题 2</h3>
+                    <p>这是第二条新闻的简要描述。</p>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+                    <h3 class="text-xl font-semibold mb-2">新闻标题 3</h3>
+                    <p>这是第三条新闻的简要描述。</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="mt-16">
+            <h2 class="text-3xl font-bold mb-8 text-center">联系我们</h2>
+            <div class="max-w-md mx-auto">
+                <form class="space-y-4">
+                    <div>
+                        <label for="name" class="block text-sm font-medium">姓名</label>
+                        <input type="text" id="name" class="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="请输入您的姓名">
+                    </div>
+                    <div>
+                        <label for="email" class="block text-sm font-medium">邮箱</label>
+                        <input type="email" id="email" class="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="请输入您的邮箱">
+                    </div>
+                    <div>
+                        <label for="message" class="block text-sm font-medium">消息</label>
+                        <textarea id="message" rows="5" class="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="请输入您的消息"></textarea>
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors">提交</button>
+                </form>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-blue-600 text-white py-8 mt-12">
+        <div class="container mx-auto px-4 text-center">
+            <p>&copy; 2025 PC端网页. All rights reserved.</p>
+        </div>
+    </footer>
+
+</body>
+</html>

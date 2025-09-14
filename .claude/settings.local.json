@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(pnpm add:*)",
+      "Bash(curl:*)",
+      "Bash(timeout:*)",
+      "Bash(node:*)",
+      "Read(//private/tmp/**)",
+      "Bash(pkill:*)",
+      "Read(//tmp/**)",
+      "Bash(kill:*)",
+      "Bash(npm run dev)",
+      "Bash(cat:*)",
+      "Bash(npm run build:*)",
+      "Bash(lsof:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
