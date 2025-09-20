@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>俄罗斯方块游戏</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(10, 32px);
+            grid-template-rows: repeat(20, 32px);
+            gap: 1px;
+        }
+        .game-board div {
+            width: 32px;
+            height: 32px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4">
+    <h1 class="text-3xl font-bold mb-6">俄罗斯方块</h1>
+    <div class="w-full max-w-md">
+        <div class="game-board" id="game-board"></div>
+    </div>
+    <div class="mt-6 flex space-x-4">
+        <button onclick="rotate()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">旋转</button>
+        <button onclick="drop()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">下落</button>
+        <button onclick="moveLeft()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">左移</button>
+        <button onclick="moveRight()" class="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600">右移</button>
+    </div>
+
+    <script>
+        const board = document.getElementById('game-board');
+        const rows = 20;
+        const cols = 10;
+        let grid = createGrid();
+        let currentPiece = null;
+        let nextPiece = null;
+
+        function createGrid() {
+            return Array.from({ length: rows }, () => Array(cols).fill(0));
+        }
+
+        function drawGrid() {
+            board.innerHTML = '';
+            grid.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    const cell = document.createElement('div');
+                    cell.classList.add(value === 0 ? 'bg-gray-300' : 'bg-blue-500');
+                    board.appendChild(cell);
+                });
+            });
+        }
+
+        function createPiece() {
+            const shapes = [
+                [[1, 1, 1, 1]],
+                [[1, 1], [1, 1]],
+                [[1, 1, 1], [0, 1, 0]],
+                [[1, 1, 1], [1, 0, 0]],
+                [[1, 1], [1, 1], [1, 1]]
+            ];
+            const shape = shapes[Math.floor(Math.random() * shapes.length)];
+            return {
+                shape,
+                x: Math.floor(cols / 2) - Math.floor(shape[0].length / 2),
+                y: 0
+            };
+        }
+
+        function checkCollision(piece, dx = 0, dy = 0) {
+            const { shape, x: px, y: py } = piece;
+            for (let i = 0; i < shape.length; i++) {
+                for (let j = 0; j < shape[i].length; j++) {
+                    if (shape[i][j]) {
+                        const nx = px + j + dx;
+                        const ny = py + i + dy;
+                        if (nx < 0 || nx >= cols || ny >= rows || grid[ny][nx] !== 0) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        function placePiece(piece) {
+            const { shape, x: px, y: py } = piece;
+            for (let i = 0; i < shape.length; i++) {
+                for (let j = 0; j < shape[i].length; j++) {
+                    if (shape[i][j]) {
+                        grid[py + i][px + j] = 1;
+                    }
+                }
+            }
+        }
+
+        function clearLines() {
+            for (let y = rows - 1; y >= 0; y--) {
+                if (grid[y].every(cell => cell === 1)) {
+                    grid.splice(y, 1);
+                    grid.unshift(Array(cols).fill(0));
+                }
+            }
+        }
+
+        function movePiece(dx, dy) {
+            if (!checkCollision(currentPiece, dx, dy)) {
+                currentPiece.x += dx;
+                currentPiece.y += dy;
+            }
+        }
+
+        function rotatePiece() {
+            const { shape, x: px, y: py } = currentPiece;
+            const newShape = shape[0].map((_, i) => shape.map(row => row[i]).reverse());
+            if (!checkCollision(currentPiece, 0, 0, newShape)) {
+                currentPiece.shape = newShape;
+            }
+        }
+
+        function dropPiece() {
+            while (!checkCollision(currentPiece, 0, 1)) {
+                movePiece(0, 1);
+            }
+            placePiece(currentPiece);
+            currentPiece = nextPiece;
+            nextPiece = createPiece();
+            clearLines();
+            drawGrid();
+        }
+
+        function moveLeft() {
+            if (!checkCollision(currentPiece, -1, 0)) {
+                currentPiece.x -= 1;
+            }
+        }
+
+        function moveRight() {
+            if (!checkCollision(currentPiece, 1, 0)) {
+                currentPiece.x += 1;
+            }
+        }
+
+        function rotate() {
+            rotatePiece();
+            drawGrid();
+        }
+
+        function startGame() {
+            currentPiece = createPiece();
+            nextPiece = createPiece();
+            grid = createGrid();
+            drawGrid();
+        }
+
+        // 初始化游戏
+        startGame();
+
+        // 游戏循环
+        setInterval(() => {
+            if (!checkCollision(currentPiece, 0, 1)) {
+                movePiece(0, 1);
+            } else {
+                placePiece(currentPiece);
+                currentPiece = nextPiece;
+                nextPiece = createPiece();
+                clearLines();
+                drawGrid();
+            }
+        }, 500);
+    </script>
+</body>
+</html>

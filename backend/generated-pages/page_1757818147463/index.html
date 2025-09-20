@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>打地鼠游戏</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .drill {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background-color: #4F46E5;
+            border-radius: 50%;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="container max-w-md w-full p-6 bg-white rounded-lg shadow-md">
+        <h1 class="text-3xl font-bold mb-6 text-center">打地鼠游戏</h1>
+        <div id="gameArea" class="grid grid-cols-3 gap-4 mb-6">
+            <!-- 会随机出现的地鼠 -->
+        </div>
+        <p id="score" class="text-center text-lg mb-4">得分: 0</p>
+        <button id="startBtn" class="w-full bg-blue-500 text-white py-3 px-4 rounded hover:bg-blue-600 transition">
+            开始游戏
+        </button>
+    </div>
+
+    <script>
+        const gameArea = document.getElementById('gameArea');
+        const startBtn = document.getElementById('startBtn');
+        const scoreDisplay = document.getElementById('score');
+
+        let score = 0;
+        let gameInterval;
+
+        function createDrill() {
+            const drill = document.createElement('div');
+            drill.classList.add('drill');
+            drill.style.left = `${Math.random() * 70}%`;
+            drill.style.top = '100%';
+            gameArea.appendChild(drill);
+
+            const fallTime = Math.random() * 2000 + 1000; // 随机下落时间
+            setTimeout(() => {
+                drill.style.transform = 'scale(1.5)';
+                setTimeout(() => {
+                    drill.remove();
+                }, 300);
+            }, fallTime);
+        }
+
+        function startGame() {
+            score = 0;
+            scoreDisplay.textContent = `得分: ${score}`;
+            gameInterval = setInterval(createDrill, 1000);
+        }
+
+        startBtn.addEventListener('click', () => {
+            gameArea.innerHTML = '';
+            startBtn.disabled = true;
+            startGame();
+        });
+
+        // 重置按钮
+        const resetBtn = document.createElement('button');
+        resetBtn.textContent = '重新开始';
+        resetBtn.classList.add('mt-4', 'w-full', 'bg-red-500', 'text-white', 'py-2', 'px-4', 'rounded', 'hover:bg-red-600', 'transition');
+        resetBtn.addEventListener('click', () => {
+            clearInterval(gameInterval);
+            gameArea.innerHTML = '';
+            startBtn.disabled = false;
+        });
+        document.querySelector('.container').appendChild(resetBtn);
+    </script>
+</body>
+</html>

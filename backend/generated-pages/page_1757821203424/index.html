@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>俄罗斯方块游戏</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .tetris-board {
+            display: grid;
+            grid-template-columns: repeat(10, 24px);
+            grid-template-rows: repeat(20, 24px);
+            gap: 1px;
+        }
+        .tetris-cell {
+            width: 24px;
+            height: 24px;
+        }
+        .tetris-cell.fill {
+            background-color: #00ff00;
+        }
+        .tetris-cell.empty {
+            background-color: #aaa;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="container w-full max-w-md p-4">
+        <h1 class="text-2xl font-bold mb-4 text-center">俄罗斯方块</h1>
+        <div class="tetris-board" id="tetris-board"></div>
+        <div class="mt-4 flex justify-center space-x-2">
+            <button onclick="rotatePiece()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">旋转</button>
+            <button onclick="moveLeft()" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">左移</button>
+            <button onclick="moveRight()" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">右移</button>
+            <button onclick="dropPiece()" class="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded">下落</button>
+        </div>
+    </div>
+
+    <script>
+        const board = document.getElementById('tetris-board');
+        const rows = 20;
+        const cols = 10;
+
+        let boardData = Array.from({ length: rows }, () => Array(cols).fill(0));
+
+        function createBoard() {
+            for (let i = 0; i < rows; i++) {
+                const row = document.createElement('div');
+                for (let j = 0; j < cols; j++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('tetris-cell', 'empty');
+                    row.appendChild(cell);
+                }
+                board.appendChild(row);
+            }
+        }
+
+        function draw() {
+            boardData.forEach((row, i) => {
+                row.forEach((value, j) => {
+                    const cell = board.children[i].children[j];
+                    if (value === 1) {
+                        cell.classList.add('fill');
+                    } else {
+                        cell.classList.remove('fill');
+                    }
+                });
+            });
+        }
+
+        function clearBoard() {
+            boardData = Array.from({ length: rows }, () => Array(cols).fill(0));
+            draw();
+        }
+
+        let currentPiece = null;
+        let piecePosition = { x: 3, y: 0 };
+
+        function createPiece() {
+            const shape = [
+                [1, 1, 1, 1],
+                [0, 1, 0, 0]
+            ];
+            currentPiece = shape;
+        }
+
+        function movePiece(dx, dy) {
+            if (dx !== 0 && dy !== 0) return;
+            const newX = piecePosition.x + dx;
+            const newY = piecePosition.y + dy;
+
+            if (dx === 1) {
+                if (newX >= cols - 1) return;
+            } else if (dx === -1) {
+                if (newX < 0) return;
+            } else if (dy === 1) {
+                if (newY >= rows) return;
+            } else if (dy === -1) {
+                if (newY < 0) return;
+            }
+
+            for (let i = 0; i < currentPiece.length; i++) {
+                for (let j = 0; j < currentPiece[i].length; j++) {
+                    if (currentPiece[i][j] === 1) {
+                        const x = newX + j;
+                        const y = newY + i;
+                        if (boardData[y][x] === 1) return;
+                    }
+                }
+            }
+
+            piecePosition.x = newX;
+            piecePosition.y = newY;
+            draw();
+        }
+
+        function rotatePiece() {
+            const newShape = [];
+            for (let i = 0; i < currentPiece.length; i++) {
+                const newRow = [];
+                for (let j = 0; j < currentPiece[i].length; j++) {
+                    newRow[j] = currentPiece[currentPiece.length - 1 - j][i];
+                }
+                newShape.push(newRow);
+            }
+
+            const newX = piecePosition.x;
+            const newY = piecePosition.y;
+
+            for (let i = 0; i < newShape.length; i++) {
+                for (let j = 0; j < newShape[i].length; j++) {
+                    if (newShape[i][j] === 1) {
+                        const x = newX + j;
+                        const y = newY + i;
+                        if (x < 0 || x >= cols || y < 0 || y >= rows || boardData[y][x] === 1) {
+                            return;
+                        }
+                    }
+                }
+            }
+
+            piecePosition.x = newX;
+            piecePosition.y = newY;
+            currentPiece = newShape;
+            draw();
+        }
+
+        function moveLeft() {
+            movePiece(-1, 0);
+        }
+
+        function moveRight() {
+            movePiece(1, 0);
+        }
+
+        function dropPiece() {
+            while (movePiece(0, 1)) {}
+        }
+
+        createBoard();
+        createPiece();
+        draw();
+    </script>
+</body>
+</html>

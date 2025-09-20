@@ -50,7 +50,7 @@ function HomePage() {
         setPageId(currentPageId)
         
         // Use the current user input as prompt for title generation
-        const initializationResponse = await pageApi.initializePage(currentPageId, pageType, inputMessage)
+        const initializationResponse = await pageApi.initializePage(currentPageId, pageType, inputMessage, useLocalModel)
         
         // Show the generated title in chat if available
         if (initializationResponse.title) {

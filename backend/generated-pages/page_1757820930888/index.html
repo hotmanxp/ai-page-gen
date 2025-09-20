@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>俄罗斯方块游戏</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(10, 32px);
+            grid-template-rows: repeat(20, 32px);
+            gap: 1px;
+        }
+        .cell {
+            width: 32px;
+            height: 32px;
+        }
+        .cell.active {
+            background-color: #4CAF50;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="container max-w-md w-full p-4 bg-white rounded shadow-lg">
+        <h1 class="text-2xl font-bold mb-4 text-center">俄罗斯方块</h1>
+        <div class="flex flex-col items-center">
+            <div id="game-board" class="game-board relative mb-4"></div>
+            <div class="flex space-x-2">
+                <div id="tetromino-preview" class="w-16 h-16 bg-gray-300 flex items-center justify-center"></div>
+                <div id="score" class="text-lg font-medium">得分: 0</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const gameBoard = document.getElementById('game-board');
+        const tetrominoPreview = document.getElementById('tetromino-preview');
+        const scoreDisplay = document.getElementById('score');
+
+        const board = createBoard();
+        let score = 0;
+
+        function createBoard() {
+            const board = [];
+            for (let i = 0; i < 20; i++) {
+                board[i] = [];
+                for (let j = 0; j < 10; j++) {
+                    board[i][j] = 0;
+                }
+            }
+            return board;
+        }
+
+        function drawBoard() {
+            gameBoard.innerHTML = '';
+            for (let i = 0; i < 20; i++) {
+                for (let j = 0; j < 10; j++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    if (board[i][j] !== 0) {
+                        cell.classList.add('active');
+                    }
+                    gameBoard.appendChild(cell);
+                }
+            }
+        }
+
+        function createTetromino() {
+            const shapes = [
+                [[1, 1, 1, 1]],
+                [[1, 1], [1, 1]],
+                [[1, 0, 0], [1, 1, 1]],
+                [[0, 1, 1], [1, 1, 0]],
+                [[1, 1, 0], [0, 1, 1]]
+            ];
+            const shape = shapes[Math.floor(Math.random() * shapes.length)];
+            return {
+                shape,
+                color: '#' + Math.floor(Math.random()*16777215).toString(16),
+                x: 3,
+                y: 0
+            };
+        }
+
+        function drawTetromino(tetromino) {
+            tetrominoPreview.innerHTML = '';
+            for (let i = 0; i < tetromino.shape.length; i++) {
+                for (let j = 0; j < tetromino.shape[i].length; j++) {
+                    if (tetromino.shape[i][j]) {
+                        const div = document.createElement('div');
+                        div.classList.add('w-4', 'h-4', 'bg-blue-500');
+                        tetrominoPreview.appendChild(div);
+                    }
+                }
+            }
+        }
+
+        function moveTetromino(dx, dy) {
+            tetromino.x += dx;
+            tetromino.y += dy;
+            if (tetromino.x < 0 || tetromino.x + tetromino.shape[0].length > 10 ||
+                tetromino.y >= 20 || board[tetromino.y][tetromino.x] !== 0) {
+                tetromino.x -= dx;
+                tetromino.y -= dy;
+                return false;
+            }
+            return true;
+        }
+
+        function lockTetromino() {
+            for (let i = 0; i < tetromino.shape.length; i++) {
+                for (let j = 0; j < tetromino.shape[i].length; j++) {
+                    if (tetromino.shape[i][j]) {
+                        board[tetromino.y + i][tetromino.x + j] = tetromino.color;
+                    }
+                }
+            }
+            clearLines();
+            drawBoard();
+            if (moveTetromino(0, 1)) {
+                drawTetromino(tetromino);
+            } else {
+                gameOver();
+            }
+        }
+
+        function clearLines() {
+            for (let i = 19; i >= 0; i--) {
+                let full = true;
+                for (let j = 0; j < 10; j++) {
+                    if (board[i][j] === 0) {
+                        full = false;
+                        break;
+                    }
+                }
+                if (full) {
+                    score += 10;
+                    scoreDisplay.textContent = '得分: ' + score;
+                    for (let k = i; k > 0; k--) {
+                        board[k] = board[k - 1];
+                    }
+                    board[0] = Array(10).fill(0);
+                }
+            }
+        }
+
+        function gameOver() {
+            alert('游戏结束! 得分: ' + score);
+            location.reload();
+        }
+
+        let tetromino = createTetromino();
+        drawTetromino(tetromino);
+        drawBoard();
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') {
+                if (moveTetromino(-1, 0)) {
+                    drawTetromino(tetromino);
+                }
+            } else if (e.key === 'ArrowRight') {
+                if (moveTetromino(1, 0)) {
+                    drawTetromino(tetromino);
+                }
+            } else if (e.key === 'ArrowDown') {
+                if (moveTetromino(0, 1)) {
+                    drawTetromino(tetromino);
+                } else {
+                    lockTetromino();
+                }
+            } else if (e.key === 'ArrowUp') {
+                const rotations = [
+                    [[1, 1, 1, 1]],
+                    [[1, 1], [1, 1]],
+                    [[1, 0, 0], [1, 1, 1]],
+                    [[0, 1, 1], [1, 1, 0]],
+                    [[1, 1, 0], [0, 1, 1]]
+                ];
+                const rotation = rotations[(tetromino.shape.length + 1) % 4];
+                tetromino.shape = rotation;
+                drawTetromino(tetromino);
+            }
+        });
+
+        setInterval(() => {
+            if (moveTetromino(0, 1)) {
+                drawTetromino(tetromino);
+            } else {
+                lockTetromino();
+            }
+        }, 500);
+    </script>
+</body>
+</html>

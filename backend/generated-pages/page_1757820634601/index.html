@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>俄罗斯方块</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(10, 24px);
+            grid-gap: 1px;
+        }
+        .cell {
+            width: 24px;
+            height: 24px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="w-full max-w-md p-4 bg-white rounded shadow-lg">
+        <h1 class="text-2xl font-bold mb-4 text-center">俄罗斯方块</h1>
+        <div id="game" class="mb-4">
+            <div id="board" class="game-board"></div>
+        </div>
+        <div class="flex justify-center space-x-2">
+            <button id="rotate" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">旋转</button>
+            <button id="drop" class="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600">下落</button>
+            <button id="moveLeft" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">左移</button>
+            <button id="moveRight" class="bg-purple-500 text-white px-3 py-1 rounded hover:bg-purple-600">右移</button>
+        </div>
+    </div>
+
+    <script>
+        const board = document.getElementById('board');
+        const game = document.getElementById('game');
+        const rotateBtn = document.getElementById('rotate');
+        const dropBtn = document.getElementById('drop');
+        const moveLeftBtn = document.getElementById('moveLeft');
+        const moveRightBtn = document.getElementById('moveRight');
+
+        const ROWS = 20;
+        const COLS = 10;
+
+        let grid = createGrid();
+        let currentPiece;
+        let currentX, currentY;
+        let gameOver = false;
+
+        function createGrid() {
+            return Array(ROWS).fill().map(() => Array(COLS).fill(0));
+        }
+
+        function drawGrid() {
+            board.innerHTML = '';
+            grid.forEach((row, y) => {
+                row.forEach((val, x) => {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    if (val) {
+                        cell.style.backgroundColor = 'gray';
+                    }
+                    board.appendChild(cell);
+                });
+            });
+        }
+
+        function createPiece() {
+            const shapes = [
+                [[1, 1, 1, 1]],
+                [[1, 1], [1, 1]],
+                [[1, 1, 1], [0, 1, 0]],
+                [[1, 1, 1], [1, 0, 0]],
+                [[1, 1], [1, 1], [1, 1]]
+            ];
+            const shape = shapes[Math.floor(Math.random() * shapes.length)];
+            return {
+                shape,
+                color: getRandomColor()
+            };
+        }
+
+        function getRandomColor() {
+            const colors = ['red', 'green', 'blue', 'cyan', 'purple', 'orange'];
+            return colors[Math.floor(Math.random() * colors.length)];
+        }
+
+        function placePiece() {
+            grid[currentY][currentX] = currentPiece.color;
+            setTimeout(() => {
+                currentPiece = createPiece();
+                currentX = Math.floor(COLS / 2) - Math.floor(currentPiece.shape[0].length / 2);
+                currentY = 0;
+                drop();
+            }, 1000);
+        }
+
+        function move(dx, dy) {
+            if (currentY + dy >= 0 && currentY + dy + currentPiece.shape.length < ROWS) {
+                if (dy === 1) {
+                    for (let i = 0; i < currentPiece.shape.length; i++) {
+                        for (let j = 0; j < currentPiece.shape[i].length; j++) {
+                            if (currentPiece.shape[i][j]) {
+                                const newX = currentX + j + dx;
+                                const newY = currentY + i + dy;
+                                if (newX < 0 || newX >= COLS || newY >= ROWS || grid[newY][newX]) {
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    for (let i = 0; i < currentPiece.shape.length; i++) {
+                        for (let j = 0; j < currentPiece.shape[i].length; j++) {
+                            if (currentPiece.shape[i][j]) {
+                                const newX = currentX + j + dx;
+                                const newY = currentY + i + dy;
+                                if (newX < 0 || newX >= COLS || newY >= ROWS || grid[newY][newX]) {
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+                currentX += dx;
+                currentY += dy;
+            }
+        }
+
+        function drop() {
+            while (canMove(0, 1)) {
+                move(0, 1);
+            }
+            placePiece();
+        }
+
+        function rotate() {
+            const newShape = [];
+            for (let i = 0; i < currentPiece.shape.length; i++) {
+                const row = [];
+                for (let j = 0; j < currentPiece.shape[i].length; j++) {
+                    row.push(currentPiece.shape[j][currentPiece.shape.length - 1 - i]);
+                }
+                newShape.push(row);
+            }
+            currentPiece.shape = newShape;
+            move(0, 0);
+        }
+
+        function canMove(dx, dy) {
+            for (let i = 0; i < currentPiece.shape.length; i++) {
+                for (let j = 0; j < currentPiece.shape[i].length; j++) {
+                    if (currentPiece.shape[i][j]) {
+                        const newX = currentX + j + dx;
+                        const newY = currentY + i + dy;
+                        if (newX < 0 || newX >= COLS || newY >= ROWS || grid[newY][newX]) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
+        function startGame() {
+            grid = createGrid();
+            currentPiece = createPiece();
+            currentX = Math.floor(COLS / 2) - Math.floor(currentPiece.shape[0].length / 2);
+            currentY = 0;
+            drop();
+        }
+
+        function init() {
+            startGame();
+            drawGrid();
+
+            rotateBtn.addEventListener('click', () => {
+                if (!gameOver) {
+                    rotate();
+                    drawGrid();
+                }
+            });
+
+            dropBtn.addEventListener('click', () => {
+                if (!gameOver) {
+                    move(0, 1);
+                    drawGrid();
+                }
+            });
+
+            moveLeftBtn.addEventListener('click', () => {
+                if (!gameOver) {
+                    move(-1, 0);
+                    drawGrid();
+                }
+            });
+
+            moveRightBtn.addEventListener('click', () => {
+                if (!gameOver) {
+                    move(1, 0);
+                    drawGrid();
+                }
+            });
+        }
+
+        init();
+    </script>
+</body>
+</html>

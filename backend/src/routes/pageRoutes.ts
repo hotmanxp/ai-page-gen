@@ -212,7 +212,8 @@ router.post('/generate', async (req, res) => {
             pageId,
             pageType
           })
-          currentCode = await fileService.initializePage(pageId, pageType)
+          const title = await aiService.generatePageTitle(userPrompt, pageType, useLocalModel)
+          currentCode = await fileService.initializePage(pageId, pageType, title)
           loggers.pageGen.success('page_initialized', {
             pageId,
             pageType
@@ -235,6 +236,8 @@ router.post('/generate', async (req, res) => {
           currentCode,
           useLocalModel
         }
+
+        
 
         loggers.pageGen.progress('calling_ai', 'Calling AI service', {
           pageId,

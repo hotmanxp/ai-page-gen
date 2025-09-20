@@ -1,6 +1,7 @@
 import OpenAI from 'openai'
 import fallbackAIService from './fallbackAIService'
 import { loggers } from '../utils/logger'
+import { formatMsg } from './utils'
 import { BusinessModule } from '../utils/logger'
 
 const openai = new OpenAI({
@@ -238,6 +239,7 @@ export class AIService {
   }
 
   async generatePageTitle(userPrompt: string, pageType: 'h5' | 'admin' | 'pc', useLocalModel?: boolean): Promise<string> {
+    console.log('==>Generating page title...')
     const startTime = Date.now()
     loggers.ai.start('generate_title', {
       pageType,
@@ -247,7 +249,7 @@ export class AIService {
     
     const systemPrompt = `You are a creative title generator. Based on the user's page requirements and page type, generate a concise, descriptive Chinese title (5-15 characters) that accurately reflects the page content and purpose.`
     
-    const userMessage = `Please generate a suitable Chinese title for this ${pageType === 'h5' ? 'mobile' : pageType === 'admin' ? 'admin dashboard' : 'desktop'} page requirement: "${userPrompt}".
+    const userMessage = `(/no_think)Please generate a suitable Chinese title for this ${pageType === 'h5' ? 'mobile' : pageType === 'admin' ? 'admin dashboard' : 'desktop'} page requirement: "${userPrompt}".
     
 Return only the title text, no explanations or quotes. Title should be:
 - 5-15 Chinese characters
@@ -289,7 +291,7 @@ Return only the title text, no explanations or quotes. Title should be:
               max_tokens: 100,  // Sufficient for title generation
             })
 
-            const title = completion.choices[0]?.message?.content?.trim() || ''
+            const title = formatMsg(completion.choices[0]?.message?.content?.trim() || '')
             loggers.ai.debug('local_model_title_response', 'Received local model title response', {
               pageType,
               generatedTitle: title,

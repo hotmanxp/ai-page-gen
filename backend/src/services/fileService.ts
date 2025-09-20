@@ -29,6 +29,7 @@ export class FileService {
   }
 
   async initializePage(pageId: string, pageType: 'h5' | 'admin' | 'pc', customTitle?: string): Promise<string> {
+    console.log('Initializing page ===>:', pageId, pageType, customTitle)
     const startTime = Date.now()
     loggers.file.start('initialize_page', {
       pageId,
