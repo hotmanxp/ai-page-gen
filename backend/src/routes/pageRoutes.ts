@@ -1,9 +1,13 @@
 import express, { Router } from 'express'
+import path from 'path'
+import fs from 'fs-extra'
 import { AIService } from '../services/aiService'
 import { FileService } from '../services/fileService'
+import { BuildService } from '../../build-system/src/buildService'
 import { Server } from 'socket.io'
 import { loggers } from '../utils/logger'
 import { BusinessModule } from '../utils/logger'
+import { ComponentErrorService } from '../services/componentErrorService'
 import { 
   broadcastPageUpdate, 
   broadcastGenerationStart, 
@@ -14,6 +18,7 @@ import {
 const router: Router = express.Router()
 const aiService = new AIService()
 const fileService = new FileService()
+const buildService = new BuildService()
 
 let io: Server | null = null
 
@@ -254,13 +259,51 @@ router.post('/generate', async (req, res) => {
           contentLength: generatedContent.length
         })
         
-        // Update page content
-        await fileService.updatePageContent(pageId, generatedContent)
+        // Update page component
+        await fileService.updatePageComponent(pageId, generatedContent)
         
-        loggers.pageGen.success('content_updated', {
+        loggers.pageGen.success('component_updated', {
           pageId,
           pageType
         })
+        
+        // Build the React component
+        try {
+          loggers.pageGen.progress('building_component', 'Building React component', {
+            pageId,
+            pageType
+          })
+          
+          const buildOptions = {
+            componentCode: generatedContent,
+            outputDir: path.join('./generated-pages', pageId),
+            pageId: pageId
+          }
+          
+          const builtComponentPath = await buildService.buildComponent(buildOptions)
+          
+          loggers.pageGen.success('component_built', {
+            pageId,
+            pageType,
+            buildPath: builtComponentPath
+          })
+        } catch (buildError) {
+          const errorMessage = buildError instanceof Error ? buildError.message : 'Unknown build error';
+          loggers.pageGen.error('build_error', buildError instanceof Error ? buildError : new Error('Unknown build error'), {
+            pageId,
+            pageType,
+            errorMessage
+          });
+          
+          // 将构建错误信息传递给前端
+          if (io) {
+            loggers.websocket.websocketEvent('generation_error', pageId, {
+              pageType,
+              errorMessage: `组件构建失败: ${errorMessage}`
+            });
+            broadcastError(io, pageId, `组件构建失败: ${errorMessage}`);
+          }
+        }
         
         // Broadcast updates
         if (io) {
@@ -340,6 +383,7 @@ router.get('/:pageId/content', async (req, res) => {
     })
     
     const content = await fileService.getPageContent(pageId)
+
     
     const duration = Date.now() - startTime
     loggers.http.httpRequest('GET', `/api/pages/${pageId}/content`, 200, duration, {
@@ -355,6 +399,7 @@ router.get('/:pageId/content', async (req, res) => {
     res.json({ 
       success: true, 
       pageId, 
+      isComponent: fs.existsSync(path.join(__dirname,'../../generated-pages', pageId, 'main.js')),
       content 
     })
   } catch (error) {
@@ -492,6 +537,128 @@ router.get('/list', async (req, res) => {
     
     res.status(500).json({ 
       error: 'Failed to get pages list',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+// Serve built component
+router.get('/:pageId/component', async (req, res) => {
+  const startTime = Date.now()
+  const { pageId } = req.params
+  
+  loggers.http.httpRequest('GET', `/api/pages/${pageId}/component`, 0, 0, {
+    pageId
+  })
+  
+  try {
+    const componentPath = path.join('./generated-pages', pageId, `main.js`)
+    
+    if (!fs.existsSync(componentPath)) {
+      loggers.pageMgmt.warn('component_not_found', 'Built component not found', {
+        pageId,
+        componentPath
+      })
+      
+      const duration = Date.now() - startTime
+      loggers.http.httpRequest('GET', `/api/pages/${pageId}/component`, 404, duration, {
+        pageId,
+        errorMessage: 'Component not found'
+      })
+      
+      return res.status(404).json({ 
+        error: 'Component not found',
+        message: 'The built component has not been generated yet'
+      })
+    }
+    
+    res.setHeader('Content-Type', 'application/javascript')
+    res.sendFile(path.resolve(componentPath))
+    
+    const duration = Date.now() - startTime
+    loggers.http.httpRequest('GET', `/api/pages/${pageId}/component`, 200, duration, {
+      pageId
+    })
+    
+  } catch (error) {
+    loggers.pageMgmt.error('serve_component_error', error instanceof Error ? error : new Error('Unknown error'), {
+      pageId
+    })
+    
+    const duration = Date.now() - startTime
+    loggers.http.httpRequest('GET', `/api/pages/${pageId}/component`, 500, duration, {
+      pageId,
+      errorMessage: error instanceof Error ? error.message : 'Unknown error'
+    })
+    
+    res.status(500).json({ 
+      error: 'Failed to serve component',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+// Get React component code
+router.get('/:pageId/component-code', async (req, res) => {
+  const startTime = Date.now()
+  const { pageId } = req.params
+  
+  loggers.http.httpRequest('GET', `/api/pages/${pageId}/component-code`, 0, 0, {
+    pageId
+  })
+  
+  try {
+    const componentPath = path.join('./generated-pages', pageId, 'app.tsx')
+    
+    if (!fs.existsSync(componentPath)) {
+      loggers.pageMgmt.warn('component_code_not_found', 'Component code not found', {
+        pageId,
+        componentPath
+      })
+      
+      const duration = Date.now() - startTime
+      loggers.http.httpRequest('GET', `/api/pages/${pageId}/component-code`, 404, duration, {
+        pageId,
+        errorMessage: 'Component code not found'
+      })
+      
+      return res.status(404).json({ 
+        error: 'Component code not found',
+        message: 'The component code has not been generated yet'
+      })
+    }
+    
+    const componentCode = await fs.readFile(componentPath, 'utf-8')
+    
+    const duration = Date.now() - startTime
+    loggers.http.httpRequest('GET', `/api/pages/${pageId}/component-code`, 200, duration, {
+      pageId,
+      contentLength: componentCode.length
+    })
+    
+    loggers.pageMgmt.success('got_component_code', {
+      pageId,
+      contentLength: componentCode.length
+    })
+    
+    res.json({ 
+      success: true, 
+      pageId, 
+      componentCode 
+    })
+  } catch (error) {
+    loggers.pageMgmt.error('get_component_code_error', error instanceof Error ? error : new Error('Unknown error'), {
+      pageId
+    })
+    
+    const duration = Date.now() - startTime
+    loggers.http.httpRequest('GET', `/api/pages/${pageId}/component-code`, 500, duration, {
+      pageId,
+      errorMessage: error instanceof Error ? error.message : 'Unknown error'
+    })
+    
+    res.status(500).json({ 
+      error: 'Failed to get component code',
       details: error instanceof Error ? error.message : 'Unknown error'
     })
   }

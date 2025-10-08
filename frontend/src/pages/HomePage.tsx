@@ -3,6 +3,7 @@ import { Row, Col, Card, Select, Button, Space, message, Spin, Switch } from 'an
 import { MobileOutlined, DesktopOutlined, TabletOutlined, ShareAltOutlined, ApiOutlined } from '@ant-design/icons'
 import PreviewArea from '../components/PreviewArea'
 import ChatArea from '../components/ChatArea'
+import LoadRemoteComponent from '../components/LoadRemoteComponent'
 import PageSelector from '../components/PageSelector'
 import socketService from '../services/socketService'
 import { pageApi } from '../services/apiService'
@@ -24,9 +25,12 @@ function HomePage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [inputMessage, setInputMessage] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
-  const [pageId, setPageId] = useState<string>('')
+  const [pageId, setPageId] = useState<string>(searchParams.get('pageId')|| "")
   const [pageContent, setPageContent] = useState<string>('')
+  const [isComponent, setIsComonent] = useState<boolean>(false)
   const [isLoadingPage, setIsLoadingPage] = useState(false)
+  const [pageVersion, setPageVersion] = useState(0)
+
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isGenerating) return
@@ -141,6 +145,7 @@ function HomePage() {
           case 'page_update':
             if (data.data?.content) {
               setPageContent(data.data.content)
+              setPageVersion(prev => prev + 1)
               const updateMessage: Message = {
                 id: `update_${Date.now()}`,
                 content: '🔄 页面内容已更新',
@@ -180,8 +185,12 @@ function HomePage() {
     setIsLoadingPage(true)
     try {
       const response = await pageApi.getPageContent(existingPageId)
-      if (response.success && response.content) {
+      if (response.isComponent) {
+        setIsComonent(true)
+      } else {
         setPageContent(response.content)
+      }
+      if (response.success ) {
         setPageId(existingPageId)
         
         // Add a message to indicate page was loaded
@@ -207,6 +216,7 @@ function HomePage() {
 
   // Handle URL parameter on component mount
   useEffect(() => {
+    console.log('useEffect ===>')
     const urlPageId = searchParams.get('pageId')
     if (urlPageId) {
       fetchExistingPage(urlPageId)
@@ -257,8 +267,13 @@ function HomePage() {
     setIsLoadingPage(true)
     try {
       const response = await pageApi.getPageContent(selectedPageId)
-      if (response.success && response.content) {
+      if (response.isComponent) {
+        setIsComonent(true)
+      } else {
         setPageContent(response.content)
+      }
+      if (response.success) {
+        
         setPageId(selectedPageId)
         
         // Update URL without page reload
@@ -330,13 +345,21 @@ function HomePage() {
               </Space>
             }
           >
-            {isLoadingPage ? (
+            {
+            isLoadingPage ? (
               <div className="h-full flex items-center justify-center">
                 <Spin size="large" tip="正在加载页面内容..." />
               </div>
             ) : (
-              <PreviewArea pageType={pageType} pageContent={pageContent} />
+              isComponent ? (
+                   <LoadRemoteComponent pageId={pageId} key={pageVersion}/>
+              )
+               : (
+                <PreviewArea pageType={pageType} pageContent={pageContent} />
+              )
+             
             )}
+           
           </Card>
         </Col>
         <Col span={8} className="h-full">

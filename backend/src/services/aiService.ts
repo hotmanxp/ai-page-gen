@@ -98,63 +98,62 @@ export class AIService {
             })
             
             // 提取HTML内容，去除markdown包裹
-            const extractedHtml = this.extractHtmlFromMarkdown(content)
-            loggers.ai.debug('content_extracted', 'HTML content extracted', {
-              pageType,
-              pageId: request.pageId,
-              extractedLength: extractedHtml.length
-            })
-
+            const extractedContent = this.extractHtmlFromMarkdown(content)
+            
             const duration = Date.now() - startTime
             loggers.ai.end('generate_page', duration, {
               pageType,
               pageId: request.pageId,
-              method: 'local_model',
-              contentLength: extractedHtml.length,
-              model: process.env.LOCAL_MODEL_NAME || 'default'
+              method: 'local',
+              contentLength: extractedContent.length
             })
-
-            return extractedHtml
-          } catch (localModelError) {
-            loggers.ai.error('local_model_error', localModelError instanceof Error ? localModelError : new Error('Unknown error'), {
+            
+            return extractedContent
+          } catch (localError) {
+            loggers.ai.error('local_model_error', localError instanceof Error ? localError : new Error('Unknown local model error'), {
               pageType,
               pageId: request.pageId,
-              errorType: localModelError?.constructor?.name || 'UnknownError'
+              errorType: localError?.constructor?.name || 'UnknownError'
             })
-            // 如果本地模型调用失败，回退到备用服务
           }
         }
         
-        // 如果没有启用本地模型或本地模型调用失败，使用备用服务
+        // 如果本地模型不可用或失败，使用备用服务
+        loggers.ai.progress('using_fallback_service', 'Using fallback service for page generation', {
+          pageType,
+          pageId: request.pageId
+        })
         const fallbackResult = await fallbackAIService.generatePage(request)
         const duration = Date.now() - startTime
         loggers.ai.end('generate_page', duration, {
           pageType,
           pageId: request.pageId,
-          method: 'local_template',
+          method: 'fallback',
           contentLength: fallbackResult.length
         })
         return fallbackResult
       }
 
-      loggers.ai.progress('calling_api', 'Calling OpenAI API', {
+      // 使用默认模型（Kimi）
+      loggers.ai.progress('calling_kimi', 'Calling Kimi API', {
         pageType,
         pageId: request.pageId,
+        model: process.env.MODEL_NAME || 'moonshot-v1-8k',
         promptLength: userMessage.length
       })
 
       const completion = await openai.chat.completions.create({
-        model: process.env.MODEL_NAME || "kimi-k2-0905-preview",     
+        model: process.env.MODEL_NAME || 'moonshot-v1-8k',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userMessage }
         ],
         temperature: 0.7,
-        max_tokens: 8000,  // Reduced token limit to avoid API issues
+        max_tokens: 8000,
       })
 
       const content = completion.choices[0]?.message?.content || ''
-      loggers.ai.debug('api_response', 'Received API response', {
+      loggers.ai.debug('kimi_response', 'Received Kimi API response', {
         pageType,
         pageId: request.pageId,
         contentLength: content.length,
@@ -162,84 +161,61 @@ export class AIService {
       })
       
       // 提取HTML内容，去除markdown包裹
-      const extractedHtml = this.extractHtmlFromMarkdown(content)
-      loggers.ai.debug('content_extracted', 'HTML content extracted', {
-        pageType,
-        pageId: request.pageId,
-        extractedLength: extractedHtml.length
-      })
-
+      const extractedContent = this.extractHtmlFromMarkdown(content)
+      
       const duration = Date.now() - startTime
       loggers.ai.end('generate_page', duration, {
         pageType,
         pageId: request.pageId,
-        method: 'ai_api',
-        contentLength: extractedHtml.length,
-        apiResponseLength: content.length
+        method: 'kimi',
+        contentLength: extractedContent.length
       })
-
-      return extractedHtml
+      
+      return extractedContent
     } catch (error) {
-      loggers.ai.error('api_error', error instanceof Error ? error : new Error('Unknown error'), {
+      loggers.ai.error('generate_page_error', error instanceof Error ? error : new Error('Unknown error'), {
         pageType,
         pageId: request.pageId,
         errorType: error?.constructor?.name || 'UnknownError'
       })
       
-      if (error instanceof Error) {
-        console.error('Error details:', error.message)
-        if ('response' in error) {
-          console.error('API Response error:', (error as any).response?.data)
-        }
+      // 如果主服务失败，使用备用服务
+      try {
+        loggers.ai.progress('fallback_attempt', 'Attempting fallback service after main service failure', {
+          pageType,
+          pageId: request.pageId
+        })
+        const fallbackResult = await fallbackAIService.generatePage(request)
+        const duration = Date.now() - startTime
+        loggers.ai.end('generate_page', duration, {
+          pageType,
+          pageId: request.pageId,
+          method: 'fallback_after_error',
+          contentLength: fallbackResult.length,
+          reason: 'main_service_error'
+        })
+        return fallbackResult
+      } catch (fallbackError) {
+        loggers.ai.error('fallback_error', fallbackError instanceof Error ? fallbackError : new Error('Unknown fallback error'), {
+          pageType,
+          pageId: request.pageId,
+          errorType: fallbackError?.constructor?.name || 'UnknownError'
+        })
+        
+        const duration = Date.now() - startTime
+        loggers.ai.end('generate_page', duration, {
+          pageType,
+          pageId: request.pageId,
+          method: 'error',
+          error: error instanceof Error ? error.message : 'Unknown error'
+        })
+        
+        throw error
       }
-      
-      // 如果AI API调用失败，使用备用服务
-      loggers.ai.progress('fallback', 'Falling back to local template service', {
-        pageType,
-        pageId: request.pageId
-      })
-      
-      const fallbackResult = await fallbackAIService.generatePage(request)
-      const duration = Date.now() - startTime
-      loggers.ai.end('generate_page', duration, {
-        pageType,
-        pageId: request.pageId,
-        method: 'fallback',
-        contentLength: fallbackResult.length
-      })
-      return fallbackResult
     }
   }
 
-  private getSystemPrompt(pageType: string): string {
-    const basePrompt = `You are an expert frontend developer. Generate clean, modern HTML/CSS/JavaScript code based on user requirements. Use Tailwind CSS via CDN for styling - include <script src="https://cdn.tailwindcss.com"></script> in the head section and use Tailwind classes throughout the HTML. Create beautiful, responsive designs with modern UI components.`
-    
-    switch (pageType) {
-      case 'h5':
-        return `${basePrompt} Focus on mobile-first responsive design with touch-friendly interfaces. Use appropriate Tailwind classes for mobile layouts and spacing.`
-      case 'admin':
-        return `${basePrompt} Create professional admin dashboard layouts with data tables, charts, and management interfaces. Use Tailwind's utility classes for professional styling and layouts.`
-      case 'pc':
-        return `${basePrompt} Design desktop-optimized layouts with comprehensive functionality and professional styling. Use Tailwind classes for sophisticated desktop interfaces.`
-      default:
-        return basePrompt
-    }
-  }
-
-  private buildUserMessage(userPrompt: string, currentCode?: string): string {
-    let message = `(/no_think)Generate HTML/CSS/JavaScript code for the following requirements: ${userPrompt}`
-    
-    if (currentCode) {
-      message += `\n\nCurrent code (modify this):\n\`\`\`html\n${currentCode}\n\`\`\``
-    }
-    
-    message += `\n\nReturn only the complete HTML code with embedded CSS and JavaScript, wrapped in markdown code blocks like \`\`\`html. No explanations needed.`
-    
-    return message
-  }
-
-  async generatePageTitle(userPrompt: string, pageType: 'h5' | 'admin' | 'pc', useLocalModel?: boolean): Promise<string> {
-    console.log('==>Generating page title...')
+  async generatePageTitle(userPrompt: string, pageType: 'h5' | 'admin' | 'pc', useLocalModel = false): Promise<string> {
     const startTime = Date.now()
     loggers.ai.start('generate_title', {
       pageType,
@@ -256,7 +232,7 @@ Return only the title text, no explanations or quotes. Title should be:
 - Descriptive and accurate
 - Professional and engaging
 - Suitable for the page type`
-    
+
     try {
       // 如果用户选择使用本地模型或没有配置API密钥，则使用本地模型
       if (useLocalModel || !process.env.ANTHROPIC_AUTH_TOKEN) {
@@ -287,99 +263,83 @@ Return only the title text, no explanations or quotes. Title should be:
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userMessage }
               ],
-              temperature: 0.3,
-              max_tokens: 100,  // Sufficient for title generation
+              temperature: 0.7,
+              max_tokens: 100,
             })
 
-            const title = formatMsg(completion.choices[0]?.message?.content?.trim() || '')
-            loggers.ai.debug('local_model_title_response', 'Received local model title response', {
-              pageType,
-              generatedTitle: title,
-              titleLength: title.length
-            })
+            const title = completion.choices[0]?.message?.content?.trim() || ''
+            const duration = Date.now() - startTime
             
-            // 验证标题合理性
-            if (title.length >= 2 && title.length <= 20) {
-              const duration = Date.now() - startTime
+            if (title) {
               loggers.ai.end('generate_title', duration, {
                 pageType,
-                method: 'local_model',
-                generatedTitle: title,
-                model: process.env.LOCAL_MODEL_NAME || 'default'
+                method: 'local',
+                generatedTitle: title
               })
               return title
-            } else {
-              loggers.ai.warn('unreasonable_local_title', 'Generated title seems unreasonable, using fallback', {
-                pageType,
-                generatedTitle: title,
-                titleLength: title.length
-              })
             }
-          } catch (localModelError) {
-            loggers.ai.error('local_model_title_error', localModelError instanceof Error ? localModelError : new Error('Unknown error'), {
+          } catch (localError) {
+            loggers.ai.error('local_model_title_error', localError instanceof Error ? localError : new Error('Unknown local model error'), {
               pageType,
               userPrompt: userPrompt.substring(0, 50) + '...',
-              errorType: localModelError?.constructor?.name || 'UnknownError'
+              errorType: localError?.constructor?.name || 'UnknownError'
             })
-            // 如果本地模型调用失败，回退到备用服务
           }
         }
         
-        // 如果没有启用本地模型或本地模型调用失败，使用备用服务
-        const fallbackTitle = this.getFallbackTitle(userPrompt, pageType)
-        const duration = Date.now() - startTime
-        loggers.ai.end('generate_title', duration, {
-          pageType,
-          method: 'local_template',
-          generatedTitle: fallbackTitle
-        })
-        return fallbackTitle
-      }
-      
-      // 原来的API调用逻辑
-      const completion = await openai.chat.completions.create({
-        model: process.env.MODEL_NAME || "kimi-k2-0905-preview",     
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessage }
-        ],
-        temperature: 0.3,
-        max_tokens: 100,  // Sufficient for title generation
-      })
-
-      const title = completion.choices[0]?.message?.content?.trim() || ''
-      loggers.ai.debug('title_generated', 'Title generated successfully', {
-        pageType,
-        generatedTitle: title,
-        titleLength: title.length
-      })
-      
-      // 验证标题合理性
-      if (title.length < 2 || title.length > 20) {
-        loggers.ai.warn('unreasonable_title', 'Generated title seems unreasonable, using fallback', {
-          pageType,
-          generatedTitle: title,
-          titleLength: title.length
-        })
+        // 如果本地模型不可用或失败，使用备用方法
         const fallbackTitle = this.getFallbackTitle(userPrompt, pageType)
         const duration = Date.now() - startTime
         loggers.ai.end('generate_title', duration, {
           pageType,
           method: 'fallback',
           generatedTitle: fallbackTitle,
-          reason: 'unreasonable_title'
+          reason: 'local_model_unavailable'
         })
+        
         return fallbackTitle
       }
-      
-      const duration = Date.now() - startTime
-      loggers.ai.end('generate_title', duration, {
+
+      // 使用默认模型（Kimi）
+      loggers.ai.progress('calling_kimi_title', 'Calling Kimi API for title generation', {
         pageType,
-        method: 'ai_api',
-        generatedTitle: title
+        model: process.env.MODEL_NAME || 'moonshot-v1-8k',
+        promptLength: userMessage.length
       })
+
+      const completion = await openai.chat.completions.create({
+        model: process.env.MODEL_NAME || 'moonshot-v1-8k',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage }
+        ],
+        temperature: 0.7,
+        max_tokens: 100,
+      })
+
+      const title = completion.choices[0]?.message?.content?.trim() || ''
+      const duration = Date.now() - startTime
       
-      return title
+      if (title) {
+        loggers.ai.end('generate_title', duration, {
+          pageType,
+          method: 'kimi',
+          generatedTitle: title
+        })
+        return title
+      } else {
+        // 如果API没有返回标题，使用备用方法
+        const fallbackTitle = this.getFallbackTitle(userPrompt, pageType)
+        const duration = Date.now() - startTime
+        loggers.ai.end('generate_title', duration, {
+          pageType,
+          method: 'fallback',
+          generatedTitle: fallbackTitle,
+          reason: 'api_returned_empty'
+        })
+        
+        return fallbackTitle
+      }
     } catch (error) {
       loggers.ai.error('title_generation_error', error instanceof Error ? error : new Error('Unknown error'), {
         pageType,
@@ -398,6 +358,89 @@ Return only the title text, no explanations or quotes. Title should be:
       
       return fallbackTitle
     }
+  }
+
+  async fixComponentCode(prompt: string): Promise<string> {
+    const startTime = Date.now();
+    
+    loggers.ai.start('fix_component_code', {
+      promptLength: prompt.length
+    });
+    
+    try {
+      // 使用默认模型（Kimi）进行代码修复
+      const completion = await openai.chat.completions.create({
+        model: process.env.MODEL_NAME || 'moonshot-v1-8k',
+        messages: [
+          {
+            role: 'system',
+            content: '你是一个专业的前端开发专家，擅长修复React TypeScript代码中的各种错误。'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.2, // 使用较低的温度以获得更稳定的修复结果
+        max_tokens: 4000,
+      });
+      
+      const fixedCode = completion.choices[0].message.content || '';
+      const duration = Date.now() - startTime;
+      
+      loggers.ai.aiCall('fix_component_code', prompt, fixedCode.length, duration);
+      
+      // 验证返回的代码是否有效（简单检查）
+      if (fixedCode.trim().length === 0) {
+        throw new Error('AI返回的修复代码为空');
+      }
+      
+      return fixedCode;
+    } catch (error) {
+      loggers.ai.error('fix_component_code_error', error instanceof Error ? error : new Error('Unknown error'));
+      throw error;
+    }
+  }
+
+  private getSystemPrompt(pageType: string): string {
+    const basePrompt = `You are an expert React developer. Generate clean, modern React TypeScript components using Ant Design components and React hooks. The component should be a default export named App. Import React and necessary Ant Design components. Create beautiful, responsive designs with modern UI components. Use either Tailwind CSS classes (preferred) or inline styles for styling. Do not use external CSS files or CSS modules.`
+    
+    switch (pageType) {
+      case 'h5':
+        return `${basePrompt} Focus on mobile-first responsive design with touch-friendly interfaces. Use Ant Design Mobile components where appropriate and ensure responsive layouts. Prioritize mobile UX patterns and touch targets.`
+      case 'admin':
+        return `${basePrompt} Create professional admin dashboard layouts with data tables, charts, and management interfaces. Use Ant Design's ProLayout, Table, Card, and other admin-appropriate components. Ensure proper spacing and information hierarchy for complex data.`
+      case 'pc':
+        return `${basePrompt} Design desktop-optimized layouts with comprehensive functionality and professional styling. Use Ant Design's Layout, Menu, and sophisticated desktop components. Leverage wider screen real estate appropriately.`
+      default:
+        return basePrompt
+    }
+  }
+
+  private buildUserMessage(userPrompt: string, currentCode?: string): string {
+    let message = `(/no_think)Generate a React TypeScript component for the following requirements: ${userPrompt}`
+    
+    if (currentCode) {
+      message += `
+
+Current code (modify this):
+\`\`\`typescript
+${currentCode}
+\`\`\``
+    }
+    
+    message += `
+
+Requirements:
+- Export as default function named App
+- Use TypeScript
+- Use Ant Design components (Layout, Typography, etc.)
+- Import React and necessary Ant Design components
+- Use either Tailwind CSS classes (preferred) or inline styles for styling
+- Do not use external CSS files or CSS modules
+- Return only the complete React component code, wrapped in markdown code blocks like \`\`\`typescript. No explanations needed.`
+    
+    return message
   }
 
   private getFallbackTitle(userPrompt: string, pageType: 'h5' | 'admin' | 'pc'): string {
@@ -451,15 +494,15 @@ Return only the title text, no explanations or quotes. Title should be:
     // 移除markdown代码块标记
     let cleanedContent = content.trim()
     
-    // 匹配 ```html 开头的代码块
-    const htmlBlockPattern = /```html\s*\n([\s\S]*?)\n```$/i
-    const match = cleanedContent.match(htmlBlockPattern)
+    // 匹配 ```typescript 或 ```tsx 开头的代码块
+    const tsBlockPattern = /```(?:typescript|tsx)\s*\n([\s\S]*?)\n```$/i
+    const match = cleanedContent.match(tsBlockPattern)
     
     if (match) {
       return match[1].trim()
     }
     
-    // 如果没有找到html标记，尝试通用的 ``` 代码块
+    // 如果没有找到typescript标记，尝试通用的 ``` 代码块
     const genericBlockPattern = /^```\s*\n([\s\S]*?)\n```$/
     const genericMatch = cleanedContent.match(genericBlockPattern)
     
@@ -467,7 +510,7 @@ Return only the title text, no explanations or quotes. Title should be:
       return genericMatch[1].trim()
     }
     
-    // 如果都没有找到，返回原始内容（假设已经是HTML）
+    // 如果都没有找到，返回原始内容（假设已经是TypeScript/React代码）
     return cleanedContent
   }
 }
